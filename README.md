@@ -1,56 +1,5 @@
 # Zenus App Insights — exact setup checklist
 
-Project: `ZB-CS - PP Digital Portal Solution`  
-Use the **same connection string value** everywhere. Only the **name** changes (FE vs BE).
-
----
-
-## Confirmed facts (Admin) — no guessing
-
-From real **admin-webapp CI** logs (builds `10534` main, `10353` qa):
-
-1. Docker build command is:
-   ```text
-   docker build -f .../Dockerfile ... -t ***.azurecr.io/fintechadminwebapp:<tag> ...
-   ```
-   There is **no** `--build-arg` today.
-
-2. Build log also shows:
-   ```text
-   Failed to load /app/.env.prod.
-   ```
-
-3. Admin Dockerfile (on `telemtry-08`) **already has**:
-   ```dockerfile
-   ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING
-   ENV REACT_APP_APPINSIGHTS_CONNECTION_STRING=$REACT_APP_APPINSIGHTS_CONNECTION_STRING
-   RUN echo "REACT_APP_APPINSIGHTS_CONNECTION_STRING=${REACT_APP_APPINSIGHTS_CONNECTION_STRING}" >> .env.prod
-   ```
-   So Dockerfile is ready; **CI is not passing the arg yet**.
-
-4. Admin CI YAML only has:
-   ```yaml
-   variables:
-   - group: PlatformDetails
-   ```
-   and extends `pipeline-ci/flow/build-acr.yml@pipelines`.
-
-5. The shared git repo `ZB-CS - PP Digital Portal Solution/pipelines` is **not visible/listable** in this project with current access, so **exact parameter names inside `build-acr.yml` cannot be read**. Do not guess `extraBuildArguments` etc.
-
-6. Admin **CD** already points to the right groups by env:
-   - qa → `ZB-FintechAdminWebApp-QA`
-   - prod → `ZB-FintechAdminWebApp-PROD`  
-   You still need the value **at image build** for React (`REACT_APP_*`), not only at CD deploy.
-
-### QA group vs PROD group — Admin
-
-| Action | Do this |
-|--------|---------|
-| In **Library** | Add the variable to **both** groups (QA and PROD). Each group holds its own value. |
-| In **pipeline YAML `variables:`** | Do **not** list both groups together as always-on. |
-| Who picks QA vs PROD for Admin CD? | Already done in `pipeline_CD.yml` via `envConfig.qa.variableGroup` / `envConfig.prod.variableGroup`. |
-
----
 
 # PART A — Frontends
 
