@@ -1,266 +1,239 @@
-# Zenus / Purple Plum — Azure App Insights setup guide
+# Zenus App Insights — exact setup checklist
 
-Exact steps for all repos. Read-only verification was done against Azure DevOps project  
-`ZB-CS - PP Digital Portal Solution` (nothing was modified in ADO by this guide).
-
-**Use the same App Insights connection string value everywhere.**  
-Only the **variable name** differs (FE vs BE).
+Project: `ZB-CS - PP Digital Portal Solution`  
+Use the **same connection string value** everywhere. Only the **name** changes (FE vs BE).
 
 ---
 
-## Admin CI — QA vs PROD variable groups (confirmed)
+## Confirmed facts (Admin) — no guessing
 
-### Do you add both groups?
+From real **admin-webapp CI** logs (builds `10534` main, `10353` qa):
 
-**No. Do not add both at the same time.**
+1. Docker build command is:
+   ```text
+   docker build -f .../Dockerfile ... -t ***.azurecr.io/fintechadminwebapp:<tag> ...
+   ```
+   There is **no** `--build-arg` today.
 
-| Branch being built | Use this group only |
-|--------------------|---------------------|
-| `qa` | `ZB-FintechAdminWebApp-QA` |
-| `main` (prod) | `ZB-FintechAdminWebApp-PROD` |
+2. Build log also shows:
+   ```text
+   Failed to load /app/.env.prod.
+   ```
 
-Adding **both** QA + PROD together is wrong — same variable name exists in both groups and values can conflict.
+3. Admin Dockerfile (on `telemtry-08`) **already has**:
+   ```dockerfile
+   ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING
+   ENV REACT_APP_APPINSIGHTS_CONNECTION_STRING=$REACT_APP_APPINSIGHTS_CONNECTION_STRING
+   RUN echo "REACT_APP_APPINSIGHTS_CONNECTION_STRING=${REACT_APP_APPINSIGHTS_CONNECTION_STRING}" >> .env.prod
+   ```
+   So Dockerfile is ready; **CI is not passing the arg yet**.
 
-### Recommended YAML pattern (branch-based, one group)
+4. Admin CI YAML only has:
+   ```yaml
+   variables:
+   - group: PlatformDetails
+   ```
+   and extends `pipeline-ci/flow/build-acr.yml@pipelines`.
 
-In `fintech_admin_webapp` → `Pipelines/pipeline_CI.yml`:
+5. The shared git repo `ZB-CS - PP Digital Portal Solution/pipelines` is **not visible/listable** in this project with current access, so **exact parameter names inside `build-acr.yml` cannot be read**. Do not guess `extraBuildArguments` etc.
 
-```yaml
-variables:
-- group: PlatformDetails
-- ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
-  - group: ZB-FintechAdminWebApp-PROD
-- ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
-  - group: ZB-FintechAdminWebApp-QA
-```
+6. Admin **CD** already points to the right groups by env:
+   - qa → `ZB-FintechAdminWebApp-QA`
+   - prod → `ZB-FintechAdminWebApp-PROD`  
+   You still need the value **at image build** for React (`REACT_APP_*`), not only at CD deploy.
 
-### Is adding only `- group: ZB-FintechAdminWebApp-QA` enough?
+### QA group vs PROD group — Admin
 
-**No — not by itself.**
-
-What was verified (read-only):
-
-| Check | Result |
-|-------|--------|
-| Current Admin CI variables | Only `PlatformDetails` |
-| Admin CI `.env.required` token replace before Docker? | **Not present** in `Pipelines/pipeline_CI.yml` |
-| Shared repo `.../pipelines` (`build-acr.yml`) | **Not found** in project repo list — cannot confirm template does `.env` replace |
-| Admin Dockerfile | Expects **`ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING`** at image build |
-
-So for Admin you must:
-
-1. Add the Insights variable to **QA and PROD variable groups** (Library), and  
-2. Wire CI so the value is available at **docker build** via **build-arg** (see Admin section below).
-
-Webapp / Retail already create `.env.prod` from `.env.required` in **CD** before Docker build — Admin does not (in the visible CI YAML).
+| Action | Do this |
+|--------|---------|
+| In **Library** | Add the variable to **both** groups (QA and PROD). Each group holds its own value. |
+| In **pipeline YAML `variables:`** | Do **not** list both groups together as always-on. |
+| Who picks QA vs PROD for Admin CD? | Already done in `pipeline_CD.yml` via `envConfig.qa.variableGroup` / `envConfig.prod.variableGroup`. |
 
 ---
 
-## PART A — Frontends
+# PART A — Frontends
 
-### A1. Corporate Webapp (`fintech_webapp`)
+## A1. Corporate Webapp (`fintech_webapp`) — exact
 
-#### Variable groups (Pipelines → Library)
+### Step 1 — Variable groups
+Pipelines → Library → open each group → **+ Add** → Save
 
-| Group | Variable name | Secret |
-|-------|---------------|--------|
-| `ZB-FintechWebApp-QA` | `REACT_APP_APPINSIGHTS_CONNECTION_STRING` | Yes |
-| `ZB-FintechWebApp-PROD` | `REACT_APP_APPINSIGHTS_CONNECTION_STRING` | Yes |
+| Group | Name | Value | Secret |
+|-------|------|-------|--------|
+| `ZB-FintechWebApp-QA` | `REACT_APP_APPINSIGHTS_CONNECTION_STRING` | your Insights string | Yes |
+| `ZB-FintechWebApp-PROD` | `REACT_APP_APPINSIGHTS_CONNECTION_STRING` | your Insights string | Yes |
 
-#### Repo file
-
-File: `.env.required`  
-Add:
+### Step 2 — Repo file
+File: `fintech_webapp/.env.required`  
+Add this line (same style as existing lines):
 
 ```env
 REACT_APP_APPINSIGHTS_CONNECTION_STRING=__REACT_APP_APPINSIGHTS_CONNECTION_STRING__
 ```
 
-Commit/push to the branch CD builds from (`develop` / `main`).
+Commit + push to the branch CD builds (`develop` / `main`).
 
-#### Pipeline to run
+### Step 3 — Run pipeline
+Run **Fintech-WebApp-CD**
 
-- **Fintech-WebApp-CD**
-
-No `--build-arg` needed (CD already: `replacetokens` on `.env.required` → `.env.prod` → Docker build).
+No `--build-arg`. CD already does `replacetokens` on `.env.required` → `.env.prod` → Docker build.
 
 ---
 
-### A2. Retail Webapp (`fintech_retail_webapp`)
+## A2. Retail Webapp (`fintech_retail_webapp`) — exact
 
-#### Variable groups
+### Step 1 — Variable groups
 
-| Group | Variable name | Secret |
-|-------|---------------|--------|
+| Group | Name | Secret |
+|-------|------|--------|
 | `ZB-FintechRetailWebApp-QA` | `REACT_APP_APPINSIGHTS_CONNECTION_STRING` | Yes |
 | `ZB-FintechRetailWebApp-PROD` | `REACT_APP_APPINSIGHTS_CONNECTION_STRING` | Yes |
 
-#### Repo file
-
-File: `.env.required`  
-Add:
+### Step 2 — Repo file
+File: `fintech_retail_webapp/.env.required`
 
 ```env
 REACT_APP_APPINSIGHTS_CONNECTION_STRING=__REACT_APP_APPINSIGHTS_CONNECTION_STRING__
 ```
 
-#### Pipeline to run
+Commit + push.
 
-- **Fintech-Retail-Webapp-CD**
+### Step 3 — Run pipeline
+Run **Fintech-Retail-Webapp-CD**
 
-No `--build-arg` needed.
+No `--build-arg`.
 
 ---
 
-### A3. Admin Webapp (`fintech_admin_webapp`)
+## A3. Admin Webapp (`fintech_admin_webapp`) — exact
 
-#### Variable groups
+### Step 1 — Variable groups (Library only)
 
-| Group | Variable name | Secret |
-|-------|---------------|--------|
+| Group | Name | Secret |
+|-------|------|--------|
 | `ZB-FintechAdminWebApp-QA` | `REACT_APP_APPINSIGHTS_CONNECTION_STRING` | Yes |
 | `ZB-FintechAdminWebApp-PROD` | `REACT_APP_APPINSIGHTS_CONNECTION_STRING` | Yes |
 
-#### Repo file
+(CD already references these two groups. You are only **adding the new variable** into them.)
 
-File: `.env.required`  
-Add (for consistency / future):
+### Step 2 — Repo file `.env.required`
+File: `fintech_admin_webapp/.env.required`
 
 ```env
 REACT_APP_APPINSIGHTS_CONNECTION_STRING=__REACT_APP_APPINSIGHTS_CONNECTION_STRING__
 ```
 
-#### Pipeline file to change
+Commit + push to `qa` / `main` as needed.  
+(This matches Webapp format; Admin CI does **not** currently run token-replace, so this alone does **not** bake Insights.)
 
-File: `Pipelines/pipeline_CI.yml`
+### Step 3 — CI must pass Docker build-arg (required)
 
-**1) Link the correct Admin group by branch** (not both at once):
+**Verified:** current Admin CI `docker build` has **zero** `--build-arg`.  
+**Verified:** Dockerfile expects `ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING`.  
+**Blocked for us:** cannot open `pipelines` / `build-acr.yml` to name the exact parameter.
 
-```yaml
-variables:
-- group: PlatformDetails
-- ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
-  - group: ZB-FintechAdminWebApp-PROD
-- ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
-  - group: ZB-FintechAdminWebApp-QA
-```
+#### What you must do (exact)
 
-**2) Pass Docker build-arg** (required for Admin today)
+1. Open the shared repo used by Admin CI:  
+   `ZB-CS - PP Digital Portal Solution/pipelines`  
+   (ask DevOps if you cannot see it — it is referenced by CI but not in the normal repo list for this PAT).
 
-Your Dockerfile already has:
+2. Open: `pipeline-ci/flow/build-acr.yml`  
+   Find the **Docker@2** task named like **Build image** (same name as in CI logs).
 
-```dockerfile
-ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING
-```
+3. On that Docker Build task, set **arguments** so the real command becomes:
+   ```text
+   docker build ... --build-arg REACT_APP_APPINSIGHTS_CONNECTION_STRING=$(REACT_APP_APPINSIGHTS_CONNECTION_STRING) ...
+   ```
+   In YAML this is the Docker@2 input:
+   ```yaml
+   arguments: --build-arg REACT_APP_APPINSIGHTS_CONNECTION_STRING=$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)
+   ```
+   (Keep any existing arguments if the template already sets some; **append** this build-arg.)
 
-So CI must pass it. Exact parameter name depends on shared template `pipeline-ci/flow/build-acr.yml@pipelines`  
-(that `pipelines` repo was **not listed** in the project — ask team where it lives, or open a recent Admin CI log and search for `docker build`).
+4. In `fintech_admin_webapp/Pipelines/pipeline_CI.yml`, make the Admin variable group available during CI (so `$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)` resolves).
 
-Typical pattern if the template supports extra build args:
+   Replace:
+   ```yaml
+   variables:
+   - group: PlatformDetails
+   ```
+   With:
+   ```yaml
+   variables:
+   - group: PlatformDetails
+   - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+     - group: ZB-FintechAdminWebApp-PROD
+   - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
+     - group: ZB-FintechAdminWebApp-QA
+   ```
 
-```yaml
-extends:
-  template: pipeline-ci/flow/build-acr.yml@pipelines
-  parameters:
-    buildMode: docker
-    imageName: 'fintechadminwebapp'
-    dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
-    # confirm exact parameter name in build-acr.yml
-    extraBuildArguments: '--build-arg REACT_APP_APPINSIGHTS_CONNECTION_STRING=$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)'
-```
+   **Do not** put QA and PROD groups both always-on.
 
-If the template has **no** build-arg parameter, add a CI step before Docker build (same idea as Webapp CD):
+5. How to confirm it worked: rerun **admin-webapp CI**, open log **Build image**, search for:
+   ```text
+   --build-arg REACT_APP_APPINSIGHTS_CONNECTION_STRING=
+   ```
+   If that string is missing, Insights is still empty in the image.
 
-```yaml
-# conceptual steps — place where your CI builds the image
-- task: replacetokens@6
-  inputs:
-    sources: '.env.required'
-    tokenPattern: 'doubleunderscores'
-- script: mv .env.required .env.prod
-```
-
-…and ensure `npm run build` inside Docker uses that `.env.prod` (your Dockerfile also appends from ARG).
-
-#### Pipelines to run
-
-1. **admin-webapp CI** (rebuild image — mandatory)  
-2. **admin-webapp CD** (deploy)
-
----
-
-## PART B — Backends / scripts (no build-arg)
-
-For every service below:
-
-1. Library → open **QA** group → Add  
-   `APPLICATIONINSIGHTS_CONNECTION_STRING` = Insights string → **Secret** → Save  
-2. Repeat for **PROD** group  
-3. Rerun that service’s **CD** pipeline  
-
-No `.env.required` change. No `--build-arg`.
-
-| # | Repo | QA variable group | PROD variable group | CD pipeline to run |
-|---|------|-------------------|---------------------|--------------------|
-| 1 | `fintech_business_management` | `ZB-FintechBusinessManagment-QA` | `ZB-FintechBusinessManagment-PROD` | **business-management CD** |
-| 2 | `fintech_business_settings` | `ZB-FintechBusinessSettings-QA` | `ZB-FintechBusinessSettings-PROD` | **business-settings CD** |
-| 3 | `fintech_documents_management` | `ZB-FintechDocumentsManagement-QA` | `ZB-FintechDocumentsManagement-PROD` | **Fintech-Documents-Management-CD** |
-| 4 | `fintech_notifications_management` | `ZB-FintechNotificationsManagement-QA` | `ZB-FintechNotificationsManagement-PROD` | **Fintech-Notifications-Management-CD** |
-| 5 | `fintech_super_admin` | `ZB-FintechSupeAdmin-QA` | `ZB-FintechSupeAdmin-PROD` | **Fintech-Super-Admin-CD** |
-| 6 | `fintech_user_management` | `ZB-FintechUserManagment-QA` | `ZB-FintechUserManagment-PROD` | **user-management CD** |
-| 7 | `fintech_statement_generator` | `ZB-FintechStatementGenerator-QA` | `ZB-FintechStatementGenerator-PROD` | **Fintech-Statement-Generator-CD** |
-| 8 | `fintech_processing_scripts` | `ZB-FintechProcessingScripts-QA` | `ZB-FintechProcessingScripts-PROD` | **Fintech-Processing-Scripts-CD** |
-| 9 | `fintech_management_migrations` | `ZB-FintechManagementMigrations-QA` | `ZB-FintechManagementMigrations-PROD` | **Fintech-Migrations-Management-CD** |
-
-Note: group names keep existing typos (`Managment`, `SupeAdmin`) — use exact names as in Library.
+### Step 4 — Pipelines to run
+1. **admin-webapp CI** (must succeed with build-arg in log)  
+2. **admin-webapp CD**
 
 ---
 
-## PART C — Do NOT use for Insights
+# PART B — Backends / scripts — exact
 
-| Group | Why |
-|-------|-----|
-| `ZB-Common-QA` / `ZB-Common-PROD` | ACR / resource group / service connections only |
-| `PlatformDetails` | ACR / deploy service connections only |
+For each row:
+
+1. Library → QA group → Add `APPLICATIONINSIGHTS_CONNECTION_STRING` (Secret) → Save  
+2. Same for PROD group  
+3. Run the CD pipeline  
+
+No `.env.required`. No build-arg. No Dockerfile change.
+
+| Repo | QA group | PROD group | Run this CD |
+|------|----------|------------|-------------|
+| `fintech_business_management` | `ZB-FintechBusinessManagment-QA` | `ZB-FintechBusinessManagment-PROD` | **business-management CD** |
+| `fintech_business_settings` | `ZB-FintechBusinessSettings-QA` | `ZB-FintechBusinessSettings-PROD` | **business-settings CD** |
+| `fintech_documents_management` | `ZB-FintechDocumentsManagement-QA` | `ZB-FintechDocumentsManagement-PROD` | **Fintech-Documents-Management-CD** |
+| `fintech_notifications_management` | `ZB-FintechNotificationsManagement-QA` | `ZB-FintechNotificationsManagement-PROD` | **Fintech-Notifications-Management-CD** |
+| `fintech_super_admin` | `ZB-FintechSupeAdmin-QA` | `ZB-FintechSupeAdmin-PROD` | **Fintech-Super-Admin-CD** |
+| `fintech_user_management` | `ZB-FintechUserManagment-QA` | `ZB-FintechUserManagment-PROD` | **user-management CD** |
+| `fintech_statement_generator` | `ZB-FintechStatementGenerator-QA` | `ZB-FintechStatementGenerator-PROD` | **Fintech-Statement-Generator-CD** |
+| `fintech_processing_scripts` | `ZB-FintechProcessingScripts-QA` | `ZB-FintechProcessingScripts-PROD` | **Fintech-Processing-Scripts-CD** |
+| `fintech_management_migrations` | `ZB-FintechManagementMigrations-QA` | `ZB-FintechManagementMigrations-PROD` | **Fintech-Migrations-Management-CD** |
 
 ---
 
-## PART D — Suggested order
+# Do not use for Insights
 
-1. Add all Library variables (QA first).  
-2. Update FE `.env.required` (Webapp, Retail, Admin).  
-3. Fix Admin CI (branch group + build-arg or token replace).  
-4. Run Webapp CD, Retail CD, Admin CI → Admin CD.  
+- `ZB-Common-QA` / `ZB-Common-PROD`  
+- `PlatformDetails`  
+
+Those are ACR / service connections only.
+
+---
+
+# Order
+
+1. Add Library variables (all QA groups first).  
+2. Update Webapp + Retail + Admin `.env.required`.  
+3. Fix Admin shared `pipelines` Docker@2 build-arg + Admin CI variable groups.  
+4. Run Webapp CD, Retail CD, Admin CI → CD.  
 5. Run all backend CDs.  
-6. Click around apps → check App Insights (Transaction search / Logs).  
-7. Repeat PROD when QA is good.
+6. Click apps → App Insights.  
+7. Repeat PROD.
 
 ---
 
-## PART E — How to verify in App Insights
+# Verify
 
-After deploy + some UI navigation / API calls, look for:
+| App type | Pass criteria |
+|----------|----------------|
+| Webapp / Retail | After CD, Insights shows traffic after UI clicks |
+| Admin | CI **Build image** log contains `--build-arg REACT_APP_APPINSIGHTS_CONNECTION_STRING=`; then Insights after CD + UI |
+| Backend | After CD, API usage shows structured logs / traces |
 
-- `component` / `logger_name`: e.g. `PP-Corporate-Webapp`, `PP-Admin-Webapp`, `PP-Business-Management`
-- `operationId` / `trace_id`
-- `event`: `RestRequestProcessed`, `InboundRestRequestProcessed`
-- FE page views / exceptions if App Insights SDK is initialized
-
----
-
-## Quick answers
-
-| Question | Answer |
-|----------|--------|
-| Add only `ZB-FintechAdminWebApp-QA`? | For **qa** builds only — yes (plus build-arg / env bake). |
-| Also add `ZB-FintechAdminWebApp-PROD` in the same `variables:` list always? | **No.** Use branch condition; one group per run. |
-| Is linking the Admin group enough with no other CI change? | **No.** Admin CI must pass the value into Docker build. |
-| Webapp / Retail need `--build-arg`? | **No.** Use variable group + `.env.required` + CD. |
-| Backends need `--build-arg`? | **No.** Variable group + CD only. |
-
----
-
-## Retention (not code)
-
-Set retention in Azure Portal → App Insights / Log Analytics workspace  
-(e.g. 90 days). Document in Confluence for the ticket AC.
+Retention: set in Azure Portal App Insights / Log Analytics (not in these repos).
