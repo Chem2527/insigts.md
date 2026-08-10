@@ -1,6 +1,5 @@
-# Zenus Telemetry & Deployment — Exact BEFORE vs AFTER Replacement Guide
-
-**Organization:** `https://dev.azure.com/ZenusBankInternational`  
+#  Telemetry & Deployment — Exact BEFORE vs AFTER Replacement Guide
+  
 **Project:** `ZB-CS - PP Digital Portal Solution`  
 
 ---
