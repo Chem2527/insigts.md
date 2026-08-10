@@ -1,53 +1,57 @@
-# Zenus App Insights — Fix `RUN npm ci` CI Build Failure (3 Target Repositories)
+# Zenus Telemetry & Azure DevOps Deployment Guide (Final Checklist)
 
 **Organization:** `https://dev.azure.com/ZenusBankInternational`  
 **Project:** `ZB-CS - PP Digital Portal Solution`  
 
 ---
 
-## 🎯 Verified Error & Fix
+## 🛠️ Step 1: Azure DevOps Pipeline Permissions Fix (`webapp CI`)
 
-Docker Line 28: `RUN npm ci` failed with `exit code 1` because `package-lock.json` was missing the newly added telemetry libraries.
+To unblock **`webapp CI`** from waiting in queue:
+
+1. Go to **Pipelines** ➔ **Library** in Azure DevOps.
+2. Click on the variable group **`PlatformDetails`**.
+3. At the top right, click **Pipeline permissions**.
+4. Click the **`+`** icon at the top right of the popup modal.
+5. Search for **`webapp CI`**, select it, and click **Add / Save**.
 
 ---
 
-## 🛠️ Exact Commands to Run (Copy-Paste)
+## 🛠️ Step 2: Statement Generator Variable Group Setup (`ZB-FintechStatementGenerator-QA`)
 
-### 1. `fintech_webapp`
-In your local terminal inside `fintech_webapp`:
-```bash
-npm install @microsoft/applicationinsights-web
-git add package.json package-lock.json
-git commit -m "fix: sync package-lock.json for applicationinsights"
-git push origin staging
+In Azure DevOps Library, open **`ZB-FintechStatementGenerator-QA`** and add the following 4 variables:
+
+| Variable Name | Value | Description |
+|---|---|---|
+| **`APP_ENV`** | `qa` | Environment target |
+| **`NODE_ENV`** | `production` | Node.js production server optimization mode |
+| **`NEXT_RUNTIME`** | `nodejs` | Next.js server runtime setting |
+| **`TELEMETRY_COMPONENT`** | `fintech_statement_generator` | Component name for App Insights telemetry logs |
+
+---
+
+## 🛠️ Step 3: `Pipelines/pipeline_CD.yml` Secret Mapping (`fintech_statement_generator`)
+
+In `fintech_statement_generator` repository, ensure `Pipelines/pipeline_CD.yml` maps `APPLICATIONINSIGHTS_CONNECTION_STRING` under `secretEnv:`:
+
+```yaml
+    secretEnv:
+      JWT_PASSPHRASE: $(JWT_PASSPHRASE)
+      RESPONSE_ENCRYPTION_KEY: $(RESPONSE_ENCRYPTION_KEY)
+      APPLICATIONINSIGHTS_CONNECTION_STRING: $(APPLICATIONINSIGHTS_CONNECTION_STRING)
 ```
 
 ---
 
-### 2. `fintech_admin_webapp`
-In your local terminal inside `fintech_admin_webapp`:
-```bash
-npm install @microsoft/applicationinsights-web
-git add package.json package-lock.json
-git commit -m "fix: sync package-lock.json for applicationinsights"
-git push origin staging
-```
+## 📁 Summary Checklist for README Update
 
----
+### Frontend Webapps (`fintech_webapp` & `fintech_admin_webapp`)
+- [x] `.env.required` updated with `REACT_APP_APPINSIGHTS_CONNECTION_STRING=__REACT_APP_APPINSIGHTS_CONNECTION_STRING__`.
+- [x] `Dockerfile` updated with `ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING`.
+- [x] `package-lock.json` un-ignored in `.gitignore` and committed to Git.
 
-### 3. `fintech_statement_generator`
-In your local terminal inside `fintech_statement_generator`:
-```bash
-npm install @azure/monitor-opentelemetry
-git add package.json package-lock.json
-git commit -m "fix: sync package-lock.json for telemetry"
-git push origin staging
-```
-
----
-
-## 🚀 Post-Push Pipeline Execution
-
-1. Sync GitHub **`staging`** ➔ Azure DevOps **`qa`** branch.
-2. Trigger the CI/CD pipelines in Azure DevOps.
-3. `RUN npm ci` will complete successfully, and your build will pass!
+### Backend Microservices (`fintech_statement_generator` & 6 others)
+- [x] `.env.required` updated with `APPLICATIONINSIGHTS_CONNECTION_STRING=`.
+- [x] `instrumentation.ts` added in `src/`.
+- [x] `package-lock.json` un-ignored in `.gitignore` and committed to Git.
+- [x] Variable group `ZB-FintechStatementGenerator-QA` updated with runtime variables.
