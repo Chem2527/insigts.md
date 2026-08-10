@@ -1,4 +1,4 @@
-# Zenus App Insights — Action Plan & Sync Guide (9 Target Repositories)
+# Zenus App Insights — Action Plan & Options (9 Target Repositories)
 
 **Organization:** `https://dev.azure.com/ZenusBankInternational`  
 **Project:** `ZB-CS - PP Digital Portal Solution`  
@@ -15,220 +15,68 @@
 
 ---
 
-## 📌 Branch Mapping Strategy (Where to Make & Sync Changes)
+## 📌 Branch Mapping Strategy
 
 | Platform | Source Branch | Target Branch | Description |
 |---|---|---|---|
 | **GitHub** | `telemetry-05` (or feature branch) | **`staging`** | Commit file changes on `staging` branch (or PR into `staging`). |
 | **Azure DevOps** | GitHub **`staging`** | **`qa`** | Merge / Push GitHub `staging` into Azure DevOps **`qa`** branch (where CD/CI builds run for QA). |
-| **Azure DevOps (Prod Later)** | Azure DevOps `qa` | **`main`** | For future production deployment. |
 
 ---
 
-## Executive Summary & Current Audit Status
+## 💡 Two Implementation Options for Admin Webapp
 
-- **Azure DevOps Library Variable Groups (QA)**: ✅ **COMPLETED**. Rayhan has added secret connection strings (`APPLICATIONINSIGHTS_CONNECTION_STRING` for backends, `REACT_APP_APPINSIGHTS_CONNECTION_STRING` for frontends) to all 9 QA groups (`ZB-Fintech*-QA`).
-- **7 Backend Repositories**: ✅ **COMPLETED IN CODE**. Backends read telemetry connection strings dynamically at runtime. No Dockerfile or code changes are required for backends.
-- **2 Frontend Webapps**: ⚠️ **ACTION REQUIRED**. Docker image builds in Azure DevOps use standard `Dockerfile` (not `Dockerfile.dev`). The `ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING` lines present in `Dockerfile.dev` must be copied to `Dockerfile`.
+Rayhan's update note states:
+> *"The pipeline assumes webapps read environment variables from the container at runtime. If a webapp still requires build-time injection, you can add a Docker --build-arg as a short-term workaround like before. But that falls outside the standard and should be corrected later."*
 
----
+### 🌟 OPTION 1 (RECOMMENDED — No `pipeline_CI.yml` Edit Needed)
+**Standard Runtime Token Replacement for BOTH Webapps (`fintech_webapp` & `fintech_admin_webapp`)**
 
-## PART 1 — GitHub Side (Pre-Sync Code Updates on `staging` Branch)
+Under Option 1, you **DO NOT** edit `pipeline_CI.yml` at all! Both webapps use `.env.required` for runtime token replacement during CD.
 
-Make these file updates on the **`staging`** branch in GitHub:
-
-### A. Corporate Webapp (`fintech_webapp`)
-
-#### 1. Update `Dockerfile` (on `staging` branch)
-Replace/update `Dockerfile` to accept the build argument:
-
-```dockerfile
-# Step 1: Use Node.js as the base image
-FROM node:22-alpine AS build
-
-# Set working directory in the container
-WORKDIR /app
-
-# Copy package manifest files (lockfile optional)
-COPY package*.json ./
-
-# Use npm ci when lockfile exists; fallback to npm install otherwise
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
-
-# Copy the rest of the application code
-COPY . .
-
-# Application Insights connection string (build-time)
-ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING
-ENV REACT_APP_APPINSIGHTS_CONNECTION_STRING=$REACT_APP_APPINSIGHTS_CONNECTION_STRING
-RUN echo "REACT_APP_APPINSIGHTS_CONNECTION_STRING=${REACT_APP_APPINSIGHTS_CONNECTION_STRING}" >> .env.prod
-
-# Build the application
-RUN npm run build
-
-# Step 2: Use Nginx to serve the app
-FROM nginx:1.28.0-alpine-slim
-
-# Set default environment to "prod", can be overridden at build time
-ARG ENVIRONMENT=prod
-ENV ENVIRONMENT=${ENVIRONMENT}
-
-# Copy the build files to Nginx's HTML folder
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Copy the Nginx configuration based on the environment
-COPY nginx.${ENVIRONMENT}.conf /etc/nginx/conf.d/default.conf
-
-# Expose port 80
-EXPOSE 80
-
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-#### 2. Update `.env.required` (on `staging` branch)
-Append 1 line to `.env.required`:
-
-```env
-REACT_APP_APPINSIGHTS_CONNECTION_STRING=__REACT_APP_APPINSIGHTS_CONNECTION_STRING__
-```
+#### File Changes for Option 1:
+1. **`fintech_webapp`**: Add 1 line to `.env.required`:
+   ```env
+   REACT_APP_APPINSIGHTS_CONNECTION_STRING=__REACT_APP_APPINSIGHTS_CONNECTION_STRING__
+   ```
+2. **`fintech_admin_webapp`**: Add `.env.required` with runtime token replacement:
+   ```env
+   REACT_APP_APPINSIGHTS_CONNECTION_STRING=__REACT_APP_APPINSIGHTS_CONNECTION_STRING__
+   ```
+3. **`Dockerfile` (Both Webapps)**: Update `Dockerfile` in both frontend repos.
+4. **`pipeline_CI.yml`**: **NO EDIT NEEDED**.
 
 ---
 
-### B. Admin Webapp (`fintech_admin_webapp`)
+### OPTION 2 (Short-Term Workaround — Requires Editing `pipeline_CI.yml`)
+**Build-Time Docker Argument Injection for Admin Webapp**
 
-#### 1. Update `Dockerfile` (on `staging` branch)
-Replace/update `Dockerfile` to accept the build argument:
+Under Option 2, `fintech_admin_webapp` uses Docker `--build-arg` at image compile time.
 
-```dockerfile
-# Step 1: Use Node.js as the base image
-FROM node:22-alpine AS build
-
-# Set working directory in the container
-WORKDIR /app
-
-# Copy package manifest(s)
-COPY package*.json ./
-
-# Use npm ci when lockfile exists; fall back to npm install otherwise.
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
-
-# Copy the rest of the application code
-COPY . .
-
-# Application Insights connection string (build-time)
-ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING
-ENV REACT_APP_APPINSIGHTS_CONNECTION_STRING=$REACT_APP_APPINSIGHTS_CONNECTION_STRING
-RUN echo "REACT_APP_APPINSIGHTS_CONNECTION_STRING=${REACT_APP_APPINSIGHTS_CONNECTION_STRING}" >> .env.prod
-
-# Build the application
-RUN npm run build
-
-# Step 2: Use Nginx to serve the app
-FROM nginx:1.28.0-alpine-slim
-
-# For Docker HEALTHCHECK (slim image is minimal)
-RUN apk add --no-cache wget
-
-# Set default environment to "prod", can be overridden at build time
-ARG ENVIRONMENT=prod
-ENV ENVIRONMENT=${ENVIRONMENT}
-
-# Copy the build files to Nginx's HTML folder
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Copy the Nginx configuration based on the environment
-COPY nginx.${ENVIRONMENT}.conf /etc/nginx/conf.d/default.conf
-
-# Expose port 80
-EXPOSE 80
-
-HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=5 \
-  CMD wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1
-
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-#### 2. Update `Pipelines/pipeline_CI.yml` (on `staging` branch)
-Update `Pipelines/pipeline_CI.yml` to pass the build argument during CI:
-
-```yaml
-trigger:
-  branches:
-    include:
-      - main
-      - qa
-
-resources:
-  repositories:
-    - repository: pipelines
-      type: git
-      name: ZB-CS - PP Digital Portal Solution/pipelines
-      ref: refs/heads/main
-
-variables:
-  - group: PlatformDetails
-  - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
-    - group: ZB-FintechAdminWebApp-PROD
-  - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
-    - group: ZB-FintechAdminWebApp-QA
-
-extends:
-  template: pipeline-ci/flow/build-acr.yml@pipelines
-  parameters:
-    buildMode: docker
-    imageName: "fintechadminwebapp"
-    dockerfilePath: "$(Build.SourcesDirectory)/Dockerfile"
-    arguments: >-
-      --build-arg REACT_APP_APP_BASE_URL=$(REACT_APP_APP_BASE_URL)
-      --build-arg REACT_APP_DEVELOPMENT=$(REACT_APP_DEVELOPMENT)
-      --build-arg REACT_APP_ENC_ALGO=$(REACT_APP_ENC_ALGO)
-      --build-arg REACT_APP_ENC_KEY=$(REACT_APP_ENC_KEY)
-      --build-arg REACT_APP_APPINSIGHTS_CONNECTION_STRING=$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)
-```
+#### File Changes for Option 2:
+1. **`fintech_webapp`**: Add 1 line to `.env.required`.
+2. **`fintech_admin_webapp/Pipelines/pipeline_CI.yml`**: Add `--build-arg REACT_APP_APPINSIGHTS_CONNECTION_STRING=$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)` to `arguments:`.
+3. **`fintech_admin_webapp/Dockerfile`**: Add `ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING` block.
 
 ---
 
-### C. 7 Backend Repositories
-- **No file changes needed**. All 7 backend repos on `staging` are 100% ready.
+## 📋 Summary Table Across All 9 Repositories (Option 1 vs Option 2)
 
----
-
-## PART 2 — Azure DevOps Side (Sync & Deployment Steps)
-
-### Step 1: Sync GitHub `staging` ➔ Azure DevOps `qa`
-Push or create Pull Requests to merge GitHub **`staging`** branch into Azure DevOps **`qa`** branch.
-
-### Step 2: Execute Pipelines in Azure DevOps
-Run the pipelines in the following order:
-
-1. **Trigger Admin CI**:
-   - Run **admin-webapp CI** (`fintech_admin_webapp`). Confirm build log shows `--build-arg REACT_APP_APPINSIGHTS_CONNECTION_STRING=...`.
-2. **Trigger Frontend CD Pipelines**:
-   - Run **Fintech-WebApp-CD** (`fintech_webapp`).
-   - Run **admin-webapp CD** (`fintech_admin_webapp`).
-3. **Trigger Backend CD Pipelines**:
-   - Run **user-management CD** (`fintech_user_management`)
-   - Run **Fintech-Super-Admin-CD** (`fintech_super_admin`)
-   - Run **business-management CD** (`fintech_business_management`)
-   - Run **business-settings CD** (`fintech_business_settings`)
-   - Run **Fintech-Notifications-Management-CD** (`fintech_notifications_management`)
-   - Run **Fintech-Statement-Generator-CD** (`fintech_statement_generator`)
-   - Run **Fintech-Migrations-Management-CD** (`fintech_management_migrations`)
-
----
-
-## Summary Status Table
-
-| # | Repository Name | GitHub Action (`staging` branch) | Azure DevOps Action (`qa` branch) |
+| # | Repository | Option 1 (Standard - No CI YAML Edit) | Option 2 (Short-Term CI Build-Arg) |
 |---|---|---|---|
-| **1** | `fintech_user_management` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
-| **2** | `fintech_super_admin` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
-| **3** | `fintech_business_management` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
-| **4** | `fintech_business_settings` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
-| **5** | `fintech_notifications_management` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
-| **6** | `fintech_statement_generator` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
-| **7** | `fintech_management_migrations` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
-| **8** | `fintech_webapp` | Update `Dockerfile` & `.env.required` | Sync `staging` ➔ `qa` ; Run CD pipeline |
-| **9** | `fintech_admin_webapp` | Update `Dockerfile` & `pipeline_CI.yml` | Sync `staging` ➔ `qa` ; Run CI ➔ Run CD pipeline |
+| **1** | `fintech_user_management` | No file changes (Run CD) | No file changes (Run CD) |
+| **2** | `fintech_super_admin` | No file changes (Run CD) | No file changes (Run CD) |
+| **3** | `fintech_business_management` | No file changes (Run CD) | No file changes (Run CD) |
+| **4** | `fintech_business_settings` | No file changes (Run CD) | No file changes (Run CD) |
+| **5** | `fintech_notifications_management` | No file changes (Run CD) | No file changes (Run CD) |
+| **6** | `fintech_statement_generator` | No file changes (Run CD) | No file changes (Run CD) |
+| **7** | `fintech_management_migrations` | No file changes (Run CD) | No file changes (Run CD) |
+| **8** | `fintech_webapp` | Add `.env.required` line + update `Dockerfile` | Add `.env.required` line + update `Dockerfile` |
+| **9** | `fintech_admin_webapp` | Add `.env.required` line + update `Dockerfile` (**No CI YAML Edit**) | Update `Dockerfile` + Edit `pipeline_CI.yml` |
+
+---
+
+## 🚀 Execution Steps in Azure DevOps (After Syncing `staging` ➔ `qa`)
+
+1. **Frontends**: Run **Fintech-WebApp-CD** and **admin-webapp CD** (or CI ➔ CD).
+2. **Backends**: Run the 7 backend CD pipelines (`user-management CD`, `super-admin CD`, `business-management CD`, `business-settings CD`, `notifications-management CD`, `statement-generator CD`, `migrations CD`).
