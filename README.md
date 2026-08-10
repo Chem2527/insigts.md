@@ -1,6 +1,7 @@
 #  Telemetry & Deployment — Exact BEFORE vs AFTER Replacement Guide
+
+ 
   
-**Project:** `ZB-CS - PP Digital Portal Solution`  
 
 ---
 
@@ -79,9 +80,9 @@ package-lock.json
 **Location:** Azure DevOps ➔ Pipelines ➔ Library ➔ `PlatformDetails`
 
 ### ❌ BEFORE:
-Allowed pipelines list has `admin-webapp CI`, but **`webapp CI` is missing**.
+Allowed pipelines list has `admin-webapp CI` & `admin-webapp CD`, but **`webapp CI`** and **`Fintech-WebApp-CD`** (or `webapp CD`) are missing.
 
 ### ✅ AFTER:
 1. Click **Pipeline permissions**.
 2. Click **`+`** (Add Pipeline).
-3. Select **`webapp CI`** and click **Add / Save**.
+3. Select **`webapp CI`** AND **`Fintech-WebApp-CD`** (or `webapp CD`) and click **Add / Save**.
