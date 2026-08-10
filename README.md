@@ -1,57 +1,88 @@
-# Zenus Telemetry & Azure DevOps Deployment Guide (Final Checklist)
+# Zenus Telemetry & Deployment — Exact BEFORE vs AFTER Replacement Guide
 
 **Organization:** `https://dev.azure.com/ZenusBankInternational`  
 **Project:** `ZB-CS - PP Digital Portal Solution`  
 
 ---
 
-## 🛠️ Step 1: Azure DevOps Pipeline Permissions Fix (`webapp CI`)
+## 🛠️ Item 1: `Pipelines/pipeline_CD.yml` (`fintech_statement_generator`)
 
-To unblock **`webapp CI`** from waiting in queue:
+**File Path:** `Pipelines/pipeline_CD.yml`
 
-1. Go to **Pipelines** ➔ **Library** in Azure DevOps.
-2. Click on the variable group **`PlatformDetails`**.
-3. At the top right, click **Pipeline permissions**.
-4. Click the **`+`** icon at the top right of the popup modal.
-5. Search for **`webapp CI`**, select it, and click **Add / Save**.
-
----
-
-## 🛠️ Step 2: Statement Generator Variable Group Setup (`ZB-FintechStatementGenerator-QA`)
-
-In Azure DevOps Library, open **`ZB-FintechStatementGenerator-QA`** and add the following 4 variables:
-
-| Variable Name | Value | Description |
-|---|---|---|
-| **`APP_ENV`** | `qa` | Environment target |
-| **`NODE_ENV`** | `production` | Node.js production server optimization mode |
-| **`NEXT_RUNTIME`** | `nodejs` | Next.js server runtime setting |
-| **`TELEMETRY_COMPONENT`** | `fintech_statement_generator` | Component name for App Insights telemetry logs |
-
----
-
-## 🛠️ Step 3: `Pipelines/pipeline_CD.yml` Secret Mapping (`fintech_statement_generator`)
-
-In `fintech_statement_generator` repository, ensure `Pipelines/pipeline_CD.yml` maps `APPLICATIONINSIGHTS_CONNECTION_STRING` under `secretEnv:`:
-
+### ❌ BEFORE (Current Code):
 ```yaml
+variables:
+  - group: PlatformDetails
+
+extends:
+  template: pipeline-cd/flow/containerapp-deploy.yml@pipelines
+  parameters:
+    renderEnv: true
+    secretEnv:
+      JWT_PASSPHRASE: $(JWT_PASSPHRASE)
+      RESPONSE_ENCRYPTION_KEY: $(RESPONSE_ENCRYPTION_KEY)
+    envConfig:
+```
+
+### ✅ AFTER (Replace With):
+```yaml
+variables:
+  - group: PlatformDetails
+
+extends:
+  template: pipeline-cd/flow/containerapp-deploy.yml@pipelines
+  parameters:
+    renderEnv: true
     secretEnv:
       JWT_PASSPHRASE: $(JWT_PASSPHRASE)
       RESPONSE_ENCRYPTION_KEY: $(RESPONSE_ENCRYPTION_KEY)
       APPLICATIONINSIGHTS_CONNECTION_STRING: $(APPLICATIONINSIGHTS_CONNECTION_STRING)
+    envConfig:
 ```
 
 ---
 
-## 📁 Summary Checklist for README Update
+## 🛠️ Item 2: `.gitignore` (`fintech_webapp`, `fintech_admin_webapp`, `fintech_statement_generator`)
 
-### Frontend Webapps (`fintech_webapp` & `fintech_admin_webapp`)
-- [x] `.env.required` updated with `REACT_APP_APPINSIGHTS_CONNECTION_STRING=__REACT_APP_APPINSIGHTS_CONNECTION_STRING__`.
-- [x] `Dockerfile` updated with `ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING`.
-- [x] `package-lock.json` un-ignored in `.gitignore` and committed to Git.
+**File Path:** `.gitignore`
 
-### Backend Microservices (`fintech_statement_generator` & 6 others)
-- [x] `.env.required` updated with `APPLICATIONINSIGHTS_CONNECTION_STRING=`.
-- [x] `instrumentation.ts` added in `src/`.
-- [x] `package-lock.json` un-ignored in `.gitignore` and committed to Git.
-- [x] Variable group `ZB-FintechStatementGenerator-QA` updated with runtime variables.
+### ❌ BEFORE (Current Code):
+```text
+# package lock
+package-lock.json
+```
+
+### ✅ AFTER (Replace With):
+```text
+# package lock
+# package-lock.json
+```
+
+---
+
+## 🛠️ Item 3: Azure DevOps Library Setup (`ZB-FintechStatementGenerator-QA`)
+
+**Location:** Azure DevOps ➔ Pipelines ➔ Library ➔ `ZB-FintechStatementGenerator-QA`
+
+### ✅ Add these 4 Variables (Non-Secret):
+
+| Variable Name | Value | Secret (Padlock 🔒)? |
+|---|---|---|
+| **`APP_ENV`** | `qa` | ❌ Off |
+| **`NODE_ENV`** | `production` | ❌ Off |
+| **`NEXT_RUNTIME`** | `nodejs` | ❌ Off |
+| **`TELEMETRY_COMPONENT`** | `fintech_statement_generator` | ❌ Off |
+
+---
+
+## 🛠️ Item 4: Azure DevOps Pipeline Permissions (`PlatformDetails`)
+
+**Location:** Azure DevOps ➔ Pipelines ➔ Library ➔ `PlatformDetails`
+
+### ❌ BEFORE:
+Allowed pipelines list has `admin-webapp CI`, but **`webapp CI` is missing**.
+
+### ✅ AFTER:
+1. Click **Pipeline permissions**.
+2. Click **`+`** (Add Pipeline).
+3. Select **`webapp CI`** and click **Add / Save**.
