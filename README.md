@@ -15,6 +15,16 @@
 
 ---
 
+## 📌 Branch Mapping Strategy (Where to Make & Sync Changes)
+
+| Platform | Source Branch | Target Branch | Description |
+|---|---|---|---|
+| **GitHub** | `telemetry-05` (or feature branch) | **`staging`** | Commit file changes on `staging` branch (or PR into `staging`). |
+| **Azure DevOps** | GitHub **`staging`** | **`qa`** | Merge / Push GitHub `staging` into Azure DevOps **`qa`** branch (where CD/CI builds run for QA). |
+| **Azure DevOps (Prod Later)** | Azure DevOps `qa` | **`main`** | For future production deployment. |
+
+---
+
 ## Executive Summary & Current Audit Status
 
 - **Azure DevOps Library Variable Groups (QA)**: ✅ **COMPLETED**. Rayhan has added secret connection strings (`APPLICATIONINSIGHTS_CONNECTION_STRING` for backends, `REACT_APP_APPINSIGHTS_CONNECTION_STRING` for frontends) to all 9 QA groups (`ZB-Fintech*-QA`).
@@ -23,13 +33,13 @@
 
 ---
 
-## PART 1 — GitHub Side (Pre-Sync Code Updates)
+## PART 1 — GitHub Side (Pre-Sync Code Updates on `staging` Branch)
 
-Before syncing GitHub `staging` branches to Azure DevOps `qa` / `main`, make the following file updates:
+Make these file updates on the **`staging`** branch in GitHub:
 
 ### A. Corporate Webapp (`fintech_webapp`)
 
-#### 1. Update `Dockerfile`
+#### 1. Update `Dockerfile` (on `staging` branch)
 Replace/update `Dockerfile` to accept the build argument:
 
 ```dockerfile
@@ -76,7 +86,7 @@ EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-#### 2. Update `.env.required`
+#### 2. Update `.env.required` (on `staging` branch)
 Append 1 line to `.env.required`:
 
 ```env
@@ -87,7 +97,7 @@ REACT_APP_APPINSIGHTS_CONNECTION_STRING=__REACT_APP_APPINSIGHTS_CONNECTION_STRIN
 
 ### B. Admin Webapp (`fintech_admin_webapp`)
 
-#### 1. Update `Dockerfile`
+#### 1. Update `Dockerfile` (on `staging` branch)
 Replace/update `Dockerfile` to accept the build argument:
 
 ```dockerfile
@@ -140,7 +150,7 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=5 \
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-#### 2. Update `Pipelines/pipeline_CI.yml`
+#### 2. Update `Pipelines/pipeline_CI.yml` (on `staging` branch)
 Update `Pipelines/pipeline_CI.yml` to pass the build argument during CI:
 
 ```yaml
@@ -181,14 +191,14 @@ extends:
 ---
 
 ### C. 7 Backend Repositories
-- **No file changes needed**. All 7 backend repos (`user_management`, `super_admin`, `business_management`, `business_settings`, `notifications_management`, `statement_generator`, `management_migrations`) are 100% ready.
+- **No file changes needed**. All 7 backend repos on `staging` are 100% ready.
 
 ---
 
 ## PART 2 — Azure DevOps Side (Sync & Deployment Steps)
 
-### Step 1: Sync GitHub `staging` to Azure DevOps Repositories
-Merge or push the updated `staging` branches from GitHub into Azure DevOps `qa` / `main` branches.
+### Step 1: Sync GitHub `staging` ➔ Azure DevOps `qa`
+Push or create Pull Requests to merge GitHub **`staging`** branch into Azure DevOps **`qa`** branch.
 
 ### Step 2: Execute Pipelines in Azure DevOps
 Run the pipelines in the following order:
@@ -211,14 +221,14 @@ Run the pipelines in the following order:
 
 ## Summary Status Table
 
-| # | Repository Name | GitHub Action Required | Azure DevOps Action Required |
+| # | Repository Name | GitHub Action (`staging` branch) | Azure DevOps Action (`qa` branch) |
 |---|---|---|---|
-| **1** | `fintech_user_management` | None (Ready) | Sync branch ➔ Run CD pipeline |
-| **2** | `fintech_super_admin` | None (Ready) | Sync branch ➔ Run CD pipeline |
-| **3** | `fintech_business_management` | None (Ready) | Sync branch ➔ Run CD pipeline |
-| **4** | `fintech_business_settings` | None (Ready) | Sync branch ➔ Run CD pipeline |
-| **5** | `fintech_notifications_management` | None (Ready) | Sync branch ➔ Run CD pipeline |
-| **6** | `fintech_statement_generator` | None (Ready) | Sync branch ➔ Run CD pipeline |
-| **7** | `fintech_management_migrations` | None (Ready) | Sync branch ➔ Run CD pipeline |
-| **8** | `fintech_webapp` | Update `Dockerfile` & `.env.required` | Sync branch ➔ Run CD pipeline |
-| **9** | `fintech_admin_webapp` | Update `Dockerfile` & `pipeline_CI.yml` | Sync branch ➔ Run CI pipeline ➔ Run CD pipeline |
+| **1** | `fintech_user_management` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
+| **2** | `fintech_super_admin` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
+| **3** | `fintech_business_management` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
+| **4** | `fintech_business_settings` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
+| **5** | `fintech_notifications_management` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
+| **6** | `fintech_statement_generator` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
+| **7** | `fintech_management_migrations` | None (Ready) | Sync `staging` ➔ `qa` ; Run CD pipeline |
+| **8** | `fintech_webapp` | Update `Dockerfile` & `.env.required` | Sync `staging` ➔ `qa` ; Run CD pipeline |
+| **9** | `fintech_admin_webapp` | Update `Dockerfile` & `pipeline_CI.yml` | Sync `staging` ➔ `qa` ; Run CI ➔ Run CD pipeline |
