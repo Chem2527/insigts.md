@@ -1,7 +1,5 @@
 # Telemetry & Deployment — QA to Production Migration Guide
 
-**Organization:** `https://dev.azure.com/ZenusBankInternational`  
-**Project:** `ZB-CS - PP Digital Portal Solution`  
 
 ---
 
