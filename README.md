@@ -88,12 +88,13 @@ Add these 2 pipelines to the allowed list:
 ##### 2. `Pipelines/pipeline_CI.yml` & Azure DevOps Variable Group Unlock — REQUIRED ⚠️
 
 > [!CAUTION]
-> **Variable Group Padlock Lock Issue (Secret vs Non-Secret):**
-> If `REACT_APP_APPINSIGHTS_CONNECTION_STRING` is locked as a **Secret 🔒** in Azure DevOps Library (`ZB-FintechAdminWebApp-QA`), Azure DevOps **refuses to expand `$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)`** inside pipeline template arguments.
-> This causes Docker to compile the literal text `"$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)"` into JavaScript, throwing `Error: Please provide instrumentation key`.
+> **Live Checked Padlock Lock Issue (`isSecret: True`):**
+> Live check of Azure DevOps API confirms that `REACT_APP_APPINSIGHTS_CONNECTION_STRING` in `ZB-FintechAdminWebApp-QA` and `ZB-FintechWebApp-QA` is currently **LOCKED as a Secret 🔒 (`isSecret: True`)**.
+> 
+> Because it is locked as a Secret, Azure DevOps **refuses to expand `$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)`** inside pipeline template arguments, causing Docker to compile the literal string `"$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)"` into JavaScript, which throws `Error: Please provide instrumentation key`.
 >
 > **2-Step Fix:**
-> 1. **Unlock Variable**: In Azure DevOps -> Pipelines -> Library -> **`ZB-FintechAdminWebApp-QA`** (and `ZB-FintechWebApp-QA`), click the **Padlock icon 🔒** next to `REACT_APP_APPINSIGHTS_CONNECTION_STRING` to **Unlock it (Make Non-Secret)**, then click **Save**. *(Frontend App Insights keys are public in JS bundles anyway).*
+> 1. **Unlock Variable in Azure DevOps**: Go to Azure DevOps -> Pipelines -> Library -> **`ZB-FintechAdminWebApp-QA`** (and `ZB-FintechWebApp-QA`), click the **Padlock icon 🔒** next to `REACT_APP_APPINSIGHTS_CONNECTION_STRING` to **Unlock it (Make Non-Secret / isSecret: False)**, then click **Save**. *(Frontend App Insights connection strings are public keys embedded in browser JS files anyway).*
 > 2. **Update `Pipelines/pipeline_CI.yml`**:
 > ```yaml
 > variables:
