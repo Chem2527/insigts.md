@@ -85,7 +85,7 @@ variables:
   - group: PlatformDetails
   - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
     - group: ZB-FintechAdminWebApp-PROD
-  - ${{ if ne(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+  - ${{ if ne(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
     - group: ZB-FintechAdminWebApp-QA
 
 extends:
