@@ -1,5 +1,6 @@
 # Telemetry & Deployment — QA Status & Production Migration Guide
 
+
 ---
 
 ## SECTION 1: QA STATUS & PENDING ACTION ITEMS
@@ -79,30 +80,12 @@ Add these 2 pipelines to the allowed list:
 
 #### Required Changes for `fintech_admin_webapp` & `fintech_webapp`:
 
-##### 1. `Dockerfile`
-Add `ARG`, `ENV`, and write `REACT_APP_APPINSIGHTS_CONNECTION_STRING` to `.env.prod`:
-```dockerfile
-ARG REACT_APP_APP_BASE_URL
-ARG REACT_APP_DEVELOPMENT
-ARG REACT_APP_ENC_ALGO
-ARG REACT_APP_ENC_KEY
-ARG REACT_APP_APPINSIGHTS_CONNECTION_STRING
+##### 1. `Dockerfile` — COMPLETED ✅
+`Dockerfile` already includes `ARG`, `ENV`, and writes `REACT_APP_APPINSIGHTS_CONNECTION_STRING` to `.env.prod`.
 
-ENV REACT_APP_APP_BASE_URL=$REACT_APP_APP_BASE_URL
-ENV REACT_APP_DEVELOPMENT=$REACT_APP_DEVELOPMENT
-ENV REACT_APP_ENC_ALGO=$REACT_APP_ENC_ALGO
-ENV REACT_APP_ENC_KEY=$REACT_APP_ENC_KEY
-ENV REACT_APP_APPINSIGHTS_CONNECTION_STRING=$REACT_APP_APPINSIGHTS_CONNECTION_STRING
+##### 2. `Pipelines/pipeline_CI.yml` — PENDING ❌
+Add `arguments:` parameter to pass `--build-arg REACT_APP_APPINSIGHTS_CONNECTION_STRING=$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)` and link `ZB-FintechAdminWebApp-QA`:
 
-RUN echo "REACT_APP_APP_BASE_URL=${REACT_APP_APP_BASE_URL}" > .env.prod && \
-    echo "REACT_APP_DEVELOPMENT=${REACT_APP_DEVELOPMENT}" >> .env.prod && \
-    echo "REACT_APP_ENC_ALGO=${REACT_APP_ENC_ALGO}" >> .env.prod && \
-    echo "REACT_APP_ENC_KEY=${REACT_APP_ENC_KEY}" >> .env.prod && \
-    echo "REACT_APP_APPINSIGHTS_CONNECTION_STRING=${REACT_APP_APPINSIGHTS_CONNECTION_STRING}" >> .env.prod
-```
-
-##### 2. `Pipelines/pipeline_CI.yml`
-Link the QA variable group conditionally and pass `--build-arg`:
 ```yaml
 variables:
   - group: PlatformDetails
