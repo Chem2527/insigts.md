@@ -42,13 +42,6 @@ extends:
 
 ---
 
-## Item 2: `.gitignore` and `package-lock.json` (COMPLETED)
-
-**Status:** Completed in PR 2416 (`fintech_admin_webapp`), PR 2417 (`fintech_webapp`), and PR 2421 (`fintech_statement_generator`).  
-No further changes needed for `.gitignore`.
-
----
-
 ## Item 3: Azure DevOps Library Setup (`ZB-FintechStatementGenerator-QA`)
 
 **Location:** Azure DevOps -> Pipelines -> Library -> `ZB-FintechStatementGenerator-QA`
