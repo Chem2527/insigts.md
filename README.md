@@ -64,7 +64,7 @@ Add these 2 pipelines to the allowed list:
 
 ---
 
-### Item 5: React Webapps (`fintech_admin_webapp` & `fintech_webapp`) CI & Dockerfile Updates — REQUIRED
+### Item 4: React Webapps (`fintech_admin_webapp` & `fintech_webapp`) CI & Dockerfile Updates — REQUIRED
 
 > [!IMPORTANT]
 > **Why keeping values in Azure DevOps Variable Groups alone will NOT work for React Webapps:**
