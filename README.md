@@ -104,7 +104,7 @@ extends:
 
 ---
 
-## SECTION 2: PRODUCTION MIGRATION BLUEPRINT (3 REPOSITORIES)
+## SECTION 2: PRODUCTION
 
 Moving `fintech_webapp`, `fintech_admin_webapp`, and `fintech_statement_generator` from QA to Production requires the following 3 steps:
 
