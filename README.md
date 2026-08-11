@@ -40,14 +40,8 @@ extends:
     envConfig:
 ```
 
----
 
-### Item 2: `.gitignore` and `package-lock.json` — COMPLETED
-Completed in PR 2416 (`fintech_admin_webapp`), PR 2417 (`fintech_webapp`), and PR 2421 (`fintech_statement_generator`).
-
----
-
-### Item 3: Azure DevOps Library Setup (`ZB-FintechStatementGenerator-QA`) — PENDING
+### Item 2: Azure DevOps Library Setup (`ZB-FintechStatementGenerator-QA`) — PENDING
 Location: Azure DevOps -> Pipelines -> Library -> `ZB-FintechStatementGenerator-QA`
 
 Add these 4 Non-Secret Variables:
@@ -61,7 +55,7 @@ Add these 4 Non-Secret Variables:
 
 ---
 
-### Item 4: Azure DevOps Pipeline Permissions (`PlatformDetails`) — PENDING
+### Item 3: Azure DevOps Pipeline Permissions (`PlatformDetails`) — PENDING
 Location: Azure DevOps -> Pipelines -> Library -> `PlatformDetails` -> Pipeline permissions
 
 Add these 2 pipelines to the allowed list:
@@ -80,10 +74,10 @@ Add these 2 pipelines to the allowed list:
 
 #### Required Changes for `fintech_admin_webapp` & `fintech_webapp`:
 
-##### 1. `Dockerfile` — COMPLETED ✅
+##### 1. `Dockerfile` — COMPLETED 
 `Dockerfile` already includes `ARG`, `ENV`, and writes `REACT_APP_APPINSIGHTS_CONNECTION_STRING` to `.env.prod`.
 
-##### 2. `Pipelines/pipeline_CI.yml` — PENDING ❌
+##### 2. `Pipelines/pipeline_CI.yml` — PENDING 
 Add `arguments:` parameter to pass `--build-arg REACT_APP_APPINSIGHTS_CONNECTION_STRING=$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)` and link `ZB-FintechAdminWebApp-QA`:
 
 ```yaml
