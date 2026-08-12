@@ -1,75 +1,15 @@
-# Telemetry & Deployment — QA Status & Production Migration Guide
+# Azure DevOps Variable Group Audit Matrix
 
-
----
-
-## SECTION 1: QA STATUS & ONLY PENDING ACTION ITEM
-
-### ❌ ONLY PENDING QA ACTION ITEM: Unlock Variable Padlock in Azure DevOps Library & Re-run CI
-
-> [!CAUTION]
-> **Live Checked Issue (`isSecret: True`):**
-> Live check of Azure DevOps API confirms that `REACT_APP_APPINSIGHTS_CONNECTION_STRING` in `ZB-FintechAdminWebApp-QA` and `ZB-FintechWebApp-QA` is currently **LOCKED as a Secret 🔒 (`isSecret: True`)**.
-> 
-> Because it is locked as a Secret, Azure DevOps **refuses to expand `$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)`** inside pipeline template arguments, causing Docker to compile the literal string `"$(REACT_APP_APPINSIGHTS_CONNECTION_STRING)"` into JavaScript, which throws `Error: Please provide instrumentation key`.
-
-#### 2-Step Fix:
-
-1. **Unlock Variable in Azure DevOps**:
-   * Go to Azure DevOps -> **Pipelines** -> **Library**.
-   * Open **`ZB-FintechAdminWebApp-QA`** (and `ZB-FintechWebApp-QA`).
-   * Click the **Padlock icon 🔒** next to `REACT_APP_APPINSIGHTS_CONNECTION_STRING` to **Unlock it (Make Non-Secret / isSecret: False)**.
-   * Click **Save**. *(Frontend App Insights connection strings are public keys embedded in browser JS files anyway).*
-
-2. **Re-run Pipelines**:
-   * Go to Pipelines -> **`admin-webapp CI`** -> Click **Run pipeline** (on `qa` branch).
-   * Go to Pipelines -> **`webapp CI`** -> Click **Run pipeline** (on `qa` branch).
-
----
-
-### ✅ COMPLETED QA ITEMS SUMMARY
-- `statement-generator` CD pipeline updated & deployed (`APPLICATIONINSIGHTS_CONNECTION_STRING` mapped) ✅
-- `ZB-FintechStatementGenerator-QA` Library setup (`APP_ENV`, `NODE_ENV`, `NEXT_RUNTIME`, `TELEMETRY_COMPONENT`) ✅
-- `PlatformDetails` Pipeline permissions authorized for `webapp CI` & `CD` ✅
-- `Dockerfile` updated with `ARG` & `ENV` for `fintech_admin_webapp` & `fintech_webapp` ✅
-- `pipeline_CI.yml` updated with `--build-arg` for `fintech_admin_webapp` & `fintech_webapp` ✅
-
----
-
-## SECTION 2: PRODUCTION MIGRATION BLUEPRINT (3 REPOSITORIES)
-
-Moving `fintech_webapp`, `fintech_admin_webapp`, and `fintech_statement_generator` from QA to Production requires the following 3 steps:
-
-### Step 1: Azure DevOps Production Variable Groups
-
-In Azure DevOps -> Pipelines -> Library, verify/add the Production App Insights connection strings:
-
-#### 1. `ZB-FintechWebApp-PROD`
-- Add Secret Variable: `REACT_APP_APPINSIGHTS_CONNECTION_STRING` = `[PROD App Insights Connection String]`
-
-#### 2. `ZB-FintechAdminWebApp-PROD`
-- Add Secret Variable: `REACT_APP_APPINSIGHTS_CONNECTION_STRING` = `[PROD App Insights Connection String]`
-
-#### 3. `ZB-FintechStatementGenerator-PROD`
-- Add Secret Variable: `APPLICATIONINSIGHTS_CONNECTION_STRING` = `[PROD App Insights Connection String]`
-- Add Non-Secret Variables:
-  - `APP_ENV` = `prod`
-  - `NODE_ENV` = `production`
-  - `NEXT_RUNTIME` = `nodejs`
-  - `TELEMETRY_COMPONENT` = `fintech_statement_generator`
-
----
-
-### Step 2: Git Code Merges
-
-1. **GitHub**: Merge tested code from `sandbox_qa` (or `staging`) into `main` (Production branch).
-2. **Azure DevOps**: PRs automatically sync to `main` branch in Azure DevOps.
-
----
-
-### Step 3: Production Pipeline Trigger & Deployment
-
-1. **Admin Webapp**: Run `admin-webapp CI` on `main` branch -> Trigger `admin-webapp CD` (Production stage).
-2. **Corporate Webapp**: Run `Fintech-WebApp-CD` on `main` branch (Production stage).
-3. **Statement Generator**: Run `statement-generator CI` on `main` branch -> Trigger `statement-generator CD` (Production stage).
-4. Verify Production telemetry in Azure Portal under resource `insight-zb-purpleplum-prod-eastus`.
+| Variable Name | Present in Azure DevOps? | Azure DevOps Variable Groups Found In | Value in DevOps (QA) |
+|---|---|---|---|
+| TUUM_ACCOUNT_URL | YES | ZB-FintechUserManagment-QA<br>ZB-FintechSupeAdmin-QA<br>ZB-FintechProcessingScripts-QA | https://account-api.zenus-test.tuumplatform.com |
+| TUUM_PAYMENT_ROUTER_HOST | YES | ZB-FintechBusinessManagment-QA<br>(also as TUUM_PAYMENT_ROUTER_URL in ZB-FintechUserManagment-QA) | https://payment-router-api.zenus-test.tuumplatform.com |
+| AZURE_TENANT | YES | ZB-FintechUserManagment-QA<br>ZB-FintechSupeAdmin-QA<br>ZB-FintechNotificationsManagement-QA<br>ZB-FintechBusinessSettings-QA | zenusqa |
+| AZURE_TENANT_ID | YES | ZB-FintechUserManagment-QA<br>ZB-FintechSupeAdmin-QA<br>ZB-FintechNotificationsManagement-QA<br>ZB-FintechBusinessSettings-QA | d4abffbd-1917-4272-af30-5539f8b8debd |
+| AZURE_CLIENT_ID | YES | ZB-FintechUserManagment-QA<br>ZB-FintechSupeAdmin-QA<br>ZB-FintechNotificationsManagement-QA<br>ZB-FintechBusinessSettings-QA | 55bd3efa-94be-4f48-a9cd-11f34b3e4d7d |
+| AZURE_CLIENT_SECRET | YES | ZB-FintechUserManagment-QA<br>ZB-FintechSupeAdmin-QA<br>ZB-FintechNotificationsManagement-QA<br>ZB-FintechBusinessSettings-QA<br>ZB-FintechBusinessManagment-QA | Secret (Locked) |
+| AZURE_APP_FLOW | YES | ZB-FintechUserManagment-QA<br>ZB-FintechSupeAdmin-QA<br>ZB-FintechNotificationsManagement-QA<br>ZB-FintechBusinessSettings-QA | B2C_1_ROPC_PURPLEPLUM |
+| AZURE_API_SCOPE | YES | ZB-FintechUserManagment-QA<br>ZB-FintechSupeAdmin-QA<br>ZB-FintechNotificationsManagement-QA<br>ZB-FintechBusinessSettings-QA | User.Read |
+| CIRCLE_API_HOST | YES | ZB-FintechUserManagment-QA<br>ZB-FintechBusinessManagment-QA | https://func-mw-circle-qa-eastus-002.azurewebsites.net |
+| CIRCLE_FUNCTION_KEY | YES | ZB-FintechUserManagment-QA<br>ZB-FintechBusinessManagment-QA | Secret (Locked) |
+| CIRCLE_IDEMPOTENCY_KEY | NO | Not in Variable Groups | Generated dynamically per-request in application code |
