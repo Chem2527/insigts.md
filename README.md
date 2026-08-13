@@ -1,4 +1,4 @@
-- Add TUUM_ACCOUNT_URL to ZB-FintechBusinessManagment-PROD:
+##  ZB-FintechBusinessManagment-PROD:
 
 ```
 Key: TUUM_ACCOUNT_URL
@@ -6,8 +6,8 @@ Value: https://account-api.zenus.tuumplatform.com
 ```
 
 
-- fintech_super_admin ➔ AZURE_STORAGE_ACCOUNT_KEY
+##  ZB-FintechSupeAdmin-PROD 
 
-```
-Add AZURE_STORAGE_ACCOUNT_KEY to ZB-FintechSupeAdmin-PROD
-```
+
+- Add AZURE_STORAGE_ACCOUNT_KEY
+
